@@ -10,6 +10,20 @@ bot = telebot.TeleBot(TOKEN_BOT)
 TELEGRAPH_TOKEN = 'cf70c520d1d0057bb5b5f86a32f47edeb2b50e978a5453ca748ac50051b4'
 telegraph = Telegraph(TELEGRAPH_TOKEN)
 
+# List of proxies
+proxies = [
+    'http://zwxzcxda:0j21sg2jap67@38.154.227.167:5868',
+    'http://zwxzcxda:0j21sg2jap67@185.199.229.156:7492',
+    'http://zwxzcxda:0j21sg2jap67@185.199.228.220:7300',
+    'http://zwxzcxda:0j21sg2jap67@185.199.231.45:8382',
+    'http://zwxzcxda:0j21sg2jap67@188.74.210.207:6286',
+    'http://zwxzcxda:0j21sg2jap67@188.74.183.10:8279',
+    'http://zwxzcxda:0j21sg2jap67@188.74.210.21:6100',
+    'http://zwxzcxda:0j21sg2jap67@45.155.68.129:8133',
+    'http://zwxzcxda:0j21sg2jap67@154.95.36.199:6893',
+    'http://zwxzcxda:0j21sg2jap67@45.94.47.66:8110'
+]
+
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
     bot.reply_to(message, "Gunakan perintah ini dengan format /kuso [URL anime]\n\nContoh: /kuso https://kusonime.com/jigokuraku-batch-subtitle-indonesia/")
@@ -22,7 +36,10 @@ def anime_info_command(message):
 
     url = message.text.split()[1]
     try:
-        response = requests.get(url)
+        # Using proxies for requests
+        response = requests.get(url, proxies={'http': proxies[0], 'https': proxies[0]})
+        response.raise_for_status()
+
         soup = BeautifulSoup(response.text, 'html.parser')
         anime = {}
 
@@ -35,9 +52,7 @@ def anime_info_command(message):
             anime[key] = None if value == '' else value
         sinopsis_element = soup.select_one('.lexot > p')
         anime['sinopsis'] = sinopsis_element.get_text().strip() if sinopsis_element else 'Sinopsis not found'
-        
-       
-        
+
         anime['list_download'] = []
         for el in soup.select('.smokeddlrh'):
             download_link = []
@@ -67,7 +82,7 @@ def anime_info_command(message):
 
             anime['list_download'].append({'title': title, 'download_link': download_link})
 
-        # Membuat halaman di Telegraph
+        # Create content for Telegraph page
         content = f"<img src='{anime['thumbnail']}'/><br>"
         content += f"<b>{anime['title']}</b><br>"
         content += f"Genre: {anime.get('genre', 'N/A')}<br>"
@@ -94,6 +109,7 @@ def anime_info_command(message):
         content += "<br><i>Bot by @ilham_maulana1</i><br>"
         content += "<i>Jika Bot ini membantu, dukung bot ini dengan cara donasi ke 6282137021145 dana :)</i>"
 
+        # Create page on Telegraph
         response = telegraph.create_page(
             f"Anime: {anime['title']}",
             html_content=content
@@ -103,9 +119,9 @@ def anime_info_command(message):
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton("Link Download", url=telegraph_url))
 
-        # Kirim gambar thumbnail bersama pesan teks
+        # Send photo with caption and markup
         photo_url = anime['thumbnail']
-        caption = ( 
+        caption = (
             f"Title: {anime['title']}\n"
             f"Score: {anime.get('score', 'N/A')}\n"
             f"Episodes: {anime.get('total_episode', 'N/A')}\n"
@@ -115,10 +131,14 @@ def anime_info_command(message):
             f"Seasons: {anime.get('seasons', 'N/A')}\n"
             f"Producers: {anime.get('producers', 'N/A')}\n"
             f"Released on: {anime.get('released_on', 'N/A')}\n"
-           
         )
         bot.send_photo(message.chat.id, photo_url, caption=caption, reply_markup=markup)
+
+    except requests.exceptions.RequestException as e:
+        bot.reply_to(message, f"Error accessing URL: {str(e)}")
+
     except Exception as error:
-        bot.reply_to(message, f"Terjadi kesalahan: report @ilham_maulana1")
+        bot.reply_to(message, f"An error occurred: {str(error)}")
 
 bot.polling()
+            
