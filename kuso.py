@@ -10,19 +10,21 @@ bot = telebot.TeleBot(TOKEN_BOT)
 TELEGRAPH_TOKEN = 'cf70c520d1d0057bb5b5f86a32f47edeb2b50e978a5453ca748ac50051b4'
 telegraph = Telegraph(TELEGRAPH_TOKEN)
 
-# List of proxies
-proxies = [
-    'http://zwxzcxda:0j21sg2jap67@38.154.227.167:5868',
-    'http://zwxzcxda:0j21sg2jap67@185.199.229.156:7492',
-    'http://zwxzcxda:0j21sg2jap67@185.199.228.220:7300',
-    'http://zwxzcxda:0j21sg2jap67@185.199.231.45:8382',
-    'http://zwxzcxda:0j21sg2jap67@188.74.210.207:6286',
-    'http://zwxzcxda:0j21sg2jap67@188.74.183.10:8279',
-    'http://zwxzcxda:0j21sg2jap67@188.74.210.21:6100',
-    'http://zwxzcxda:0j21sg2jap67@45.155.68.129:8133',
-    'http://zwxzcxda:0j21sg2jap67@154.95.36.199:6893',
-    'http://zwxzcxda:0j21sg2jap67@45.94.47.66:8110'
-]
+# Fetching proxy list from the URL
+proxy_url = 'https://proxy.webshare.io/api/v2/proxy/list/download/xhxserlvvtygaaxqlhcuimqmafvewwnyumtwyohp/-/any/username/direct/-/'
+proxy_list_response = requests.get(proxy_url)
+proxy_list_response.raise_for_status()
+proxy_list = proxy_list_response.text.strip().split('\n')
+
+# Parse the proxies to a suitable format
+proxies = []
+for proxy in proxy_list:
+    try:
+        ip, port, username, password = proxy.split(':')
+        proxy_url = f'http://{username}:{password}@{ip}:{port}'
+        proxies.append(proxy_url)
+    except ValueError:
+        continue  # Skip any malformed proxy entries
 
 @bot.message_handler(commands=['start', 'help'])
 def send_welcome(message):
@@ -37,7 +39,11 @@ def anime_info_command(message):
     url = message.text.split()[1]
     try:
         # Using proxies for requests
-        response = requests.get(url, proxies={'http': proxies[0], 'https': proxies[0]})
+        if proxies:
+            proxy = {'http': proxies[0], 'https': proxies[0]}
+        else:
+            proxy = None
+        response = requests.get(url, proxies=proxy)
         response.raise_for_status()
 
         soup = BeautifulSoup(response.text, 'html.parser')
